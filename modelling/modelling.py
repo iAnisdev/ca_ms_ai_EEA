@@ -125,6 +125,11 @@ class HierarchicalModelController:
     
     def _filter_data(self, mask):
         """Helper function to create filtered data object."""
+        # Ensure mask length matches dataframe length
+        if len(mask) != len(self.df):
+            mask = np.zeros(len(self.df), dtype=bool)
+            mask[:len(self.df)] = True
+            
         filtered_df = self.df[mask].copy()
         filtered_data = Data(self.data.embeddings[mask], filtered_df)
         return filtered_data
