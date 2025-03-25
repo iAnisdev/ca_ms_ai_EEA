@@ -4,6 +4,64 @@ from typing import Dict, Tuple, List
 import pandas as pd
 
 
+def predict_hierarchical(model_chain: Dict, X: np.ndarray) -> Dict[str, np.ndarray]:
+    """
+    Perform hierarchical prediction using the model chain.
+    
+    Args:
+        model_chain: Dictionary containing the hierarchical models:
+            - 'type2': Base model for Type2 prediction
+            - 'type3': Dictionary of Type3 models for each Type2 class
+            - 'type4': Dictionary of Type4 models for each (Type2, Type3) combination
+        X: Input features to predict on
+        
+    Returns:
+        Dictionary containing predictions for each type:
+            - 'type2': Type2 predictions
+            - 'type3': Type3 predictions
+            - 'type4': Type4 predictions
+    """
+    # Step 1: Predict Type2 using base model
+    type2_pred = model_chain['type2'].predict(X)
+    
+    # Initialize prediction arrays
+    n_samples = X.shape[0]
+    type3_pred = np.zeros(n_samples, dtype=object)
+    type4_pred = np.zeros(n_samples, dtype=object)
+    
+    # Step 2: For each predicted Type2 class, predict Type3
+    for t2 in np.unique(type2_pred):
+        if t2 not in model_chain['type3']:
+            continue
+            
+        # Get samples predicted as this Type2 class
+        t2_mask = type2_pred == t2
+        if np.sum(t2_mask) == 0:
+            continue
+            
+        # Predict Type3 for these samples
+        type3_pred[t2_mask] = model_chain['type3'][t2].predict(X[t2_mask])
+        
+        # Step 3: For each predicted (Type2, Type3) combination, predict Type4
+        for t3 in np.unique(type3_pred[t2_mask]):
+            if (t2, t3) not in model_chain['type4']:
+                continue
+                
+            # Get samples predicted as this (Type2, Type3) combination
+            t3_mask = t2_mask & (type3_pred == t3)
+            if np.sum(t3_mask) == 0:
+                continue
+                
+            # Predict Type4 for these samples
+            type4_pred[t3_mask] = model_chain['type4'][(t2, t3)].predict(X[t3_mask])
+    
+    return {
+        'type2': type2_pred,
+        'type3': type3_pred,
+        'type4': type4_pred
+    }
+
+
 class HierarchicalModelController:
     def __init__(self, data, df):
         self.data = data
@@ -63,44 +121,7 @@ class HierarchicalModelController:
     
     def predict(self, X_test):
         """Make predictions using the hierarchical models."""
-        # Predict Type2
-        type2_pred = self.models['type2'].predict(X_test)
-        
-        # Initialize prediction arrays
-        type3_pred = np.zeros_like(self.data.y_test_type3)
-        type4_pred = np.zeros_like(self.data.y_test_type4)
-        
-        # Predict Type3 for each Type2 class
-        for t2 in np.unique(type2_pred):
-            if t2 not in self.models['type3']:
-                continue
-                
-            # Filter test data for this Type2 class
-            mask = type2_pred == t2
-            if np.sum(mask) == 0:
-                continue
-                
-            # Get Type3 predictions
-            type3_pred[mask] = self.models['type3'][t2].predict(X_test[mask])
-            
-            # Predict Type4 for each (Type2, Type3) combination
-            for t3 in np.unique(type3_pred[mask]):
-                if (t2, t3) not in self.models['type4']:
-                    continue
-                    
-                # Filter test data for this (Type2, Type3) combination
-                mask_t3 = mask & (type3_pred == t3)
-                if np.sum(mask_t3) == 0:
-                    continue
-                    
-                # Get Type4 predictions
-                type4_pred[mask_t3] = self.models['type4'][(t2, t3)].predict(X_test[mask_t3])
-        
-        return {
-            'type2': type2_pred,
-            'type3': type3_pred,
-            'type4': type4_pred
-        }
+        return predict_hierarchical(self.models, X_test)
     
     def _filter_data(self, mask):
         """Helper function to create filtered data object."""
