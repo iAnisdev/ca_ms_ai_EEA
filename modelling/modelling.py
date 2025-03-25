@@ -5,10 +5,21 @@ import numpy as np
 def model_predict(data, df, name):
     results = []
     print("RandomForest")
-    model = RandomForest("RandomForest", data.get_embeddings(), data.get_type())
+    model = RandomForest("RandomForest", data.get_embeddings(), df)
     model.train(data)
-    model.predict(data.X_test)
+    predictions = model.predict(data.X_test)
     model.print_results(data)
+    
+    # Calculate chained classification score
+    score = evaluate_chained_classification(
+        y_true_type2=data.y_test_type2,
+        y_true_type3=data.y_test_type3,
+        y_true_type4=data.y_test_type4,
+        y_pred_type2=predictions['type2'],
+        y_pred_type3=predictions['type3'],
+        y_pred_type4=predictions['type4']
+    )
+    print(f"\nChained Classification Score: {score:.2f}%")
 
 
 def model_evaluate(model, data):

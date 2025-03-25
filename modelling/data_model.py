@@ -12,46 +12,63 @@ class Data():
                  X: np.ndarray,
                  df: pd.DataFrame) -> None:
 
-        y = df.y.to_numpy()
-        y_series = pd.Series(y)
+        # Get all type columns
+        y2 = df['y2'].to_numpy()
+        y3 = df['y3'].to_numpy()
+        y4 = df['y4'].to_numpy()
+        
+        # Filter for classes with sufficient samples (>= 3)
+        y2_series = pd.Series(y2)
+        y3_series = pd.Series(y3)
+        y4_series = pd.Series(y4)
+        
+        good_y2_value = y2_series.value_counts()[y2_series.value_counts() >= 3].index
+        good_y3_value = y3_series.value_counts()[y3_series.value_counts() >= 3].index
+        good_y4_value = y4_series.value_counts()[y4_series.value_counts() >= 3].index
 
-        good_y_value = y_series.value_counts()[y_series.value_counts() >= 3].index
-
-        if len(good_y_value)<1:
-            print("None of the class have more than 3 records: Skipping ...")
+        if len(good_y2_value) < 1 or len(good_y3_value) < 1 or len(good_y4_value) < 1:
+            print("None of the classes have more than 3 records: Skipping ...")
             self.X_train = None
             return
 
-        y_good = y[y_series.isin(good_y_value)]
-        X_good = X[y_series.isin(good_y_value)]
+        # Filter data for good classes
+        mask = (y2_series.isin(good_y2_value)) & (y3_series.isin(good_y3_value)) & (y4_series.isin(good_y4_value))
+        y2_good = y2[mask]
+        y3_good = y3[mask]
+        y4_good = y4[mask]
+        X_good = X[mask]
 
         new_test_size = X.shape[0] * 0.2 / X_good.shape[0]
 
-
-        self.X_train, self.X_test, self.y_train, self.y_test= train_test_split(X_good, y_good, test_size=new_test_size, random_state=0, stratify=y_good)
-        self.y = y_good
-        self.classes = good_y_value
+        # Split data for each type
+        self.X_train, self.X_test, self.y_train_type2, self.y_test_type2 = train_test_split(
+            X_good, y2_good, test_size=new_test_size, random_state=0, stratify=y2_good)
+        _, _, self.y_train_type3, self.y_test_type3 = train_test_split(
+            X_good, y3_good, test_size=new_test_size, random_state=0, stratify=y3_good)
+        _, _, self.y_train_type4, self.y_test_type4 = train_test_split(
+            X_good, y4_good, test_size=new_test_size, random_state=0, stratify=y4_good)
+        
         self.embeddings = X
+        self.classes_type2 = good_y2_value
+        self.classes_type3 = good_y3_value
+        self.classes_type4 = good_y4_value
 
-
-    def get_type(self):
-        return  self.y
     def get_X_train(self):
-        return  self.X_train
+        return self.X_train
     def get_X_test(self):
-        return  self.X_test
-    def get_type_y_train(self):
-        return  self.y_train
-    def get_type_y_test(self):
-        return  self.y_test
-    def get_train_df(self):
-        return  self.train_df
+        return self.X_test
+    def get_y_train_type2(self):
+        return self.y_train_type2
+    def get_y_train_type3(self):
+        return self.y_train_type3
+    def get_y_train_type4(self):
+        return self.y_train_type4
+    def get_y_test_type2(self):
+        return self.y_test_type2
+    def get_y_test_type3(self):
+        return self.y_test_type3
+    def get_y_test_type4(self):
+        return self.y_test_type4
     def get_embeddings(self):
-        return  self.embeddings
-    def get_type_test_df(self):
-        return  self.test_df
-    def get_X_DL_test(self):
-        return self.X_DL_test
-    def get_X_DL_train(self):
-        return self.X_DL_train
+        return self.embeddings
 
