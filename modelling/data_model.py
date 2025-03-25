@@ -11,47 +11,63 @@ class Data():
     def __init__(self,
                  X: np.ndarray,
                  df: pd.DataFrame) -> None:
-
+        # Store the input DataFrame and embeddings
+        self.df = df
+        self.embeddings = X
+        
         # Get all type columns
         y2 = df['y2'].to_numpy()
         y3 = df['y3'].to_numpy()
         y4 = df['y4'].to_numpy()
         
-        # Filter for classes with sufficient samples (>= 3)
+        # Filter for Type2 classes with sufficient samples (>= 3)
         y2_series = pd.Series(y2)
-        y3_series = pd.Series(y3)
-        y4_series = pd.Series(y4)
-        
         good_y2_value = y2_series.value_counts()[y2_series.value_counts() >= 3].index
-        good_y3_value = y3_series.value_counts()[y3_series.value_counts() >= 3].index
-        good_y4_value = y4_series.value_counts()[y4_series.value_counts() >= 3].index
-
-        if len(good_y2_value) < 1 or len(good_y3_value) < 1 or len(good_y4_value) < 1:
-            print("None of the classes have more than 3 records: Skipping ...")
+        
+        if len(good_y2_value) < 1:
+            print("No Type2 classes have more than 3 records: Skipping ...")
             self.X_train = None
             return
-
-        # Filter data for good classes
-        mask = (y2_series.isin(good_y2_value)) & (y3_series.isin(good_y3_value)) & (y4_series.isin(good_y4_value))
+            
+        # Filter data for good Type2 classes
+        mask = y2_series.isin(good_y2_value).values
+        
+        # Get filtered data
         y2_good = y2[mask]
         y3_good = y3[mask]
         y4_good = y4[mask]
         X_good = X[mask]
-
-        new_test_size = X.shape[0] * 0.2 / X_good.shape[0]
-
-        # Split data for each type
-        self.X_train, self.X_test, self.y_train_type2, self.y_test_type2 = train_test_split(
-            X_good, y2_good, test_size=new_test_size, random_state=0, stratify=y2_good)
-        _, _, self.y_train_type3, self.y_test_type3 = train_test_split(
-            X_good, y3_good, test_size=new_test_size, random_state=0, stratify=y3_good)
-        _, _, self.y_train_type4, self.y_test_type4 = train_test_split(
-            X_good, y4_good, test_size=new_test_size, random_state=0, stratify=y4_good)
+        df_good = df.iloc[mask].reset_index(drop=True)
         
-        self.embeddings = X
+        # Store filtered data
+        self.X = X_good
+        self.y2 = y2_good
+        self.y3 = y3_good
+        self.y4 = y4_good
+        self.df = df_good
+        
+        # Split data
+        train_idx, test_idx = train_test_split(
+            np.arange(len(X_good)), test_size=0.2, random_state=0, stratify=y2_good)
+        
+        # Store train data
+        self.X_train = X_good[train_idx]
+        self.y_train_type2 = y2_good[train_idx]
+        self.y_train_type3 = y3_good[train_idx]
+        self.y_train_type4 = y4_good[train_idx]
+        self.df_train = df_good.iloc[train_idx].reset_index(drop=True)
+        
+        # Store test data
+        self.X_test = X_good[test_idx]
+        self.y_test_type2 = y2_good[test_idx]
+        self.y_test_type3 = y3_good[test_idx]
+        self.y_test_type4 = y4_good[test_idx]
+        self.df_test = df_good.iloc[test_idx].reset_index(drop=True)
+        
+        # Store valid classes
         self.classes_type2 = good_y2_value
-        self.classes_type3 = good_y3_value
-        self.classes_type4 = good_y4_value
+        self.classes_type3 = np.unique(y3_good)  # Keep all Type3 classes
+        self.classes_type4 = np.unique(y4_good)  # Keep all Type4 classes
 
     def get_X_train(self):
         return self.X_train
