@@ -11,9 +11,18 @@ def get_input_data()->pd.DataFrame:
     df = pd.concat([df1, df2])
     df[Config.INTERACTION_CONTENT] = df[Config.INTERACTION_CONTENT].values.astype('U')
     df[Config.TICKET_SUMMARY] = df[Config.TICKET_SUMMARY].values.astype('U')
-    df["y"] = df[Config.CLASS_COL]
-    df = df.loc[(df["y"] != '') & (~df["y"].isna()),]
+    
+    # Create concatenated labels
+    df['y2_y3'] = df['y2'] + '_' + df['y3']
+    df['y2_y3_y4'] = df['y2'] + '_' + df['y3'] + '_' + df['y4']
+    
+    # Filter out rows with empty or NaN values in any type
+    df = df.loc[(df['y2'] != '') & (~df['y2'].isna()) &
+                (df['y3'] != '') & (~df['y3'].isna()) &
+                (df['y4'] != '') & (~df['y4'].isna())]
+    
     return df
+
 
 def de_duplication(data: pd.DataFrame):
     data["ic_deduplicated"] = ""
@@ -158,11 +167,21 @@ def noise_remover(df: pd.DataFrame):
         #print(noise)
         df[Config.INTERACTION_CONTENT] = df[Config.INTERACTION_CONTENT].replace(noise, " ", regex=True)
     df[Config.INTERACTION_CONTENT] = df[Config.INTERACTION_CONTENT].replace(r'\s+', ' ', regex=True).str.strip()
-    #print(df.y1.value_counts())
+    
+    # Filter for classes with sufficient samples in each type
     good_y1 = df.y1.value_counts()[df.y1.value_counts() > 10].index
-    df = df.loc[df.y1.isin(good_y1)]
-    #print(df.shape)
+    good_y2 = df.y2.value_counts()[df.y2.value_counts() > 3].index
+    good_y3 = df.y3.value_counts()[df.y3.value_counts() > 3].index
+    good_y4 = df.y4.value_counts()[df.y4.value_counts() > 3].index
+    
+    # Apply filters
+    df = df.loc[df.y1.isin(good_y1) & 
+                df.y2.isin(good_y2) & 
+                df.y3.isin(good_y3) & 
+                df.y4.isin(good_y4)]
+    
     return df
+
 
 def translate_to_en(texts:list[str]):
     import stanza
